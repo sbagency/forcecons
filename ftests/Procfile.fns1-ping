@@ -1,7 +1,0 @@
-n0:node fnodes/force-node-simpl-1-ping.js --key keys/k0.json --host 127.0.0.1 --port 10000 --bootnodes  bootnodes.json --pwd keys/pwd
-n1:node fnodes/force-node-simpl-1-ping.js --key keys/k1.json --host 127.0.0.1 --port 10001 --bootnodes  bootnodes.json --pwd keys/pwd
-n2:node fnodes/force-node-simpl-1-ping.js --key keys/k2.json --host 127.0.0.1 --port 10002 --bootnodes  bootnodes.json --pwd keys/pwd
-n3:node fnodes/force-node-simpl-1-ping.js --key keys/k3.json --host 127.0.0.1 --port 10003 --bootnodes  bootnodes.json --pwd keys/pwd
-n4:node fnodes/force-node-simpl-1-ping.js --key keys/k4.json --host 127.0.0.1 --port 10004 --bootnodes  bootnodes.json --pwd keys/pwd
-
-
