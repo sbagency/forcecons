@@ -14,10 +14,10 @@ fn.run()
 })()
 
 ```
-(debug_view)[http://localhost:8000]
+[debug_view](http://localhost:8000)
 
 
-### get started
+### local cluster
 ```js
 import {ForceNode} from '../forcenodesimpl.js'
 import {pause} from '../forceutil.js'
@@ -42,9 +42,9 @@ fns.forEach(fn=>fn.run())
 })()
 
 ```
-(debug_view_0)[http://localhost:8000]
-(debug_view_1)[http://localhost:8001]
-(debug_view_2)[http://localhost:8002]
+[debug_view_0](http://localhost:8000)
+[debug_view_1](http://localhost:8001)
+[debug_view_2](http://localhost:8002)
 
 
 ### keys generation
