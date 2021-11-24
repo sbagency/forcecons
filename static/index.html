@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+  <style>
+  body { margin: 0; }
+  .flex {display: flex;}
+  .hidden{display:none;}
+  .center{ flex-direction:column; align-items: center;justify-content: center;}
+  .full-screen{width:100%; height:100vh;}
+  </style>
+
+  <script src="force-graph.min.js"></script>
+  
+</head>
+<body>
+
+<div id="splash" class="flex center full-screen" style="position:absolute; z-index:200;color:lightgray;background:white;">
+  <h1>Loading...</h1>
+</div>
+  
+<div id="root" class="flex center">
+ <div id="g1place" style="width:100vw; height:100vh;">
+  <div style="position:absolute; z-index:101; margin:1rem;"><a id="g1zoom2fitctrl" href="#">zoom-to-fit</a></div>
+  <div style="position:absolute; z-index:102; margin:1rem; top:calc(100% - 4rem)"><a id="g1resetctrl" href="#">reset</a></div>
+  <div style="position:absolute; z-index:100; margin:1rem; left:calc(100% - 8rem)"><a id="lbkinfo" href="#">0</a></div>
+  <div id="graph1"></div>
+ </div>
+</div>
+<script>
+
+const rootEl=document.getElementById("root");
+const splashEl=document.getElementById("splash");
+const lbkinfoEl=document.getElementById("lbkinfo");
+
+const colors=['red','blue','pink','orange','yellow','green','gold','khaki','magenta',
+'violet','purple','lime','darkgreen','olive','aqua','brown','lightgray']
+
+
+  const elem1 = document.getElementById('graph1');
+
+  const g1place = document.getElementById('g1place');
+
+    var data1 = {nodes:[],links:[]}
+    const Graph1 = ForceGraph()(elem1)
+      .graphData(data1)
+      .backgroundColor('lightgreen')
+      .nodeLabel('id')
+      .linkDirectionalArrowLength(5);
+      //.linkDirectionalParticleWidth(3.4)
+      //.linkDirectionalParticleColor( (l) => { return l.source.color; });
+
+      Graph1.onNodeClick(node => {
+        console.log('onNodeClick',node)
+      })
+      
+      Graph1.onLinkClick(function(link){
+        console.log('onLinkClick',link)
+      })
+      
+window.Graph1=Graph1
+
+document.getElementById("g1zoom2fitctrl").onclick=function(e){Graph1.zoomToFit();}
+
+document.getElementById("g1resetctrl").onclick=function(e){
+  Graph1.graphData({nodes: [],links: []});
+  g1nodes={},g1onds={};
+}
+
+var lbkno=0;
+
+const onlbk=(lbk)=>{
+  lbkinfoEl.innerText = lbk.data.no + ':'+ lbk.h.substr(0,8)
+  lbkno=lbk.data.no;
+}
+
+let g1nodes={},g1onds={};
+
+const onbk=(bk)=>{
+  
+  const addr = bk.sender.addr
+  const no = bk.sender.no
+  
+  console.log(no,'onbk',bk.data.no)
+  
+  if(!addr){console.log(no,'onbk !addr',bk);return;}
+  
+  //if(bks[bk.h])return;
+  
+  const g1=Graph1;
+  
+  if(!g1){console.log('onbk !g1',bk);return;}
+  
+    const { nodes, links } = g1.graphData();
+
+    let name='bk#'+bk.data.no+'['+bk.h.substr(0,8)+'->'+bk.data.ph.substr(0,8)+'].'+bk.sender.no;
+    let node={ "id" : name, color:colors[bk.sender.no%colors.length],no:bk.data.no, h:bk.h}
+    nodes.push(node)
+
+    g1nodes[bk.h]=node
+    if(bk.data.no>0){
+      
+      let oh=g1onds[bk.h]
+      if(oh){
+        let on=g1nodes[oh]
+        if(on){
+         let link={ source: on, target: node }
+         console.log("orphan link",link)
+         links.push(link);
+        }
+      }
+      
+      let pnode=g1nodes[bk.data.ph]
+      if(pnode){
+        let link={ source: node, target: pnode }
+        links.push(link);
+      } else {
+        g1onds[bk.data.ph]=bk.h
+      }
+    }
+
+    g1.graphData({nodes: nodes,links: links})
+
+}
+
+
+const clearWatcher=()=>{
+  const maxno=lbkno-64;
+  if(maxno<=0)return;
+  
+  console.log('clearWatcher',maxno,lbkno)
+  
+  const g1=Graph1;
+  
+  let { nodes, links } = g1.graphData();
+  let idx=0;
+  for(let i in nodes){
+    const n=nodes[i]
+    if(n.no<=maxno)idx=i;
+  }
+  nodes = nodes.slice(idx);
+
+  idx=0;
+  for(let i in links){
+    const n=links[i].source;
+    //const n2=links[i].target;
+    if(n.no<=maxno)idx=i;
+    //if(n2.no<=maxno)idx=i;
+  }
+  links = links.slice(idx);
+
+  g1.graphData({nodes,links})
+}
+
+
+setInterval(clearWatcher,2000)
+
+/*
+const onrbk=(data)=>{
+  const {rbk,maxno} = data;
+  const g1=Graph1;
+  console.log('onrbk',data);
+  if(!maxno)return;
+  if(maxno<=0)return;
+  
+  const { nodes, links } = g1.graphData();
+  for(let n of nodes){
+    if(n.no>maxno)break;
+    nodes.shift()
+  }
+  for(let l of links){
+    const n=l.source;const n2=l.target;
+    if(n.no>maxno && n2.no>maxno)break;
+    links.shift()
+  }
+  
+  g1.graphData({nodes,links})
+}
+*/
+
+
+function resizeWindow(){
+  
+  
+  const h=g1place.offsetHeight
+  const w=g1place.offsetWidth
+
+  console.log('resize',h,w)
+
+  Graph1.height(h)
+  Graph1.width(w)
+
+}
+
+window.addEventListener('resize', (event) => {
+  resizeWindow();
+});
+
+window.addEventListener('load', (event) => {
+
+setTimeout(function(){
+  //resizeWindow()
+  splashEl.classList.remove('flex');
+  splashEl.classList.add('hidden');
+},100);
+
+});
+
+let ws; cto = 1;
+
+const wsconnect = ()=>{
+
+ws = new WebSocket(`ws://${location.host}`);
+
+ws.onerror = function(err){  console.error('ws.onerror',err); }
+ws.onclose = function(err){  console.log('ws.onclose',cto); setTimeout(wsconnect,cto*1000); if(cto<10)cto++; }
+
+ws.onmessage = function(event) {
+  const data = JSON.parse(event.data);
+  //console.log(data)
+  switch(data.what){
+    case 'bk':{
+      onbk(data.bk);return;
+    }
+    case 'lbk':{
+      onlbk(data.lbk);return;
+    }
+    //case 'rbk':{
+    //  onrbk(data);return;
+    //}
+  }
+};
+
+
+}
+
+setTimeout(wsconnect,10)
+
+/*
+var cnt = 0;
+setInterval(function(){
+  const msg={cnt}
+  cnt++
+  //console.log(msg)
+  ws.send(JSON.stringify(msg))
+},3000)
+*/
+</script>
+</body>
+</html>

@@ -6,7 +6,7 @@ import net from 'net'
 import crypto from 'crypto'
 import EventEmitter from 'events';
 
-import {rndstr,hash256} from './forceutil.js'
+import {rndstr,hash256,pause} from './forceutil.js'
 import {encK,decK} from './forcecrypto.js'
 
 const ecdhCurve = 'secp521r1'; // crypto.getCurves() // openssl ecparam -list_curves // X25519
@@ -47,7 +47,7 @@ const onconnect=(sock)=>{
    if(rs.ho==1){ // {ho}
     let i=rs.buf.indexOf('}{');
     if(i==-1){
-      if((rs.buf.length)>1024){ console.log(no,'sock.on data header len is incorrect',rs.buf); sockclose(sock); return; }
+      if((rs.buf.length)>1024){ console.log(no,'sock.on data header is incorrect',rs.buf); sockclose(sock); return; }
       return;
     }
     i+=1;
@@ -58,15 +58,20 @@ const onconnect=(sock)=>{
     }catch(e){console.log(no,'sock.on data ho parse/verify error',hs,e); console.log(no,e);sockclose(sock); return;}
     rs.ho=0
     rs.buf=rs.buf.substr(i)
-    if(ho.data.len>rs.buf.length){
-     return;
-    }
+    rs.len=ho.data.len;
     if(opt.log)console.log(no,'ho',ho)
    } // {ho}
+
+   if(rs.len>rs.buf.length){
+     //console.log('rs.len>rs.buf.length',rs.len,rs.buf.length)
+     return;
+   }
+
    rs.ho=1;
    
    let mo; let ms; try{
-     ms=rs.buf.substr(0,ho.data.len); rs.buf=rs.buf.substr(ho.data.len)
+     //if(!ho){console.log(no,'!ho','rs:',rs)}
+     ms=rs.buf.substr(0,rs.len); rs.buf=rs.buf.substr(rs.len)
      //console.log('ms',ms)
      mo=JSON.parse(ms)
      if(mo.encd){
@@ -77,7 +82,7 @@ const onconnect=(sock)=>{
      }
      if(opt.verify)await opt.verify(mo)
      if(opt.log)console.log(no,'mo',mo)
-   }catch(e){ console.log(no,'sock.on data mo parse/verify error',ms,e); sockclose(sock); return; }
+   }catch(e){ console.log(no,'sock.on data mo parse/verify error','rs.len',rs.len,'ms:',ms,e); sockclose(sock); return; }
    
    
    if(!mo.data.from || !mo.data.from.addr){console.log('!mo.data.from',mo);sockclose(sock);return;}
@@ -122,7 +127,18 @@ const onconnect=(sock)=>{
  })
 }
 
+server =  net.createServer();
+server.listen(opt.port, opt.host, () => { console.log(`net server listen ${opt.host}:${opt.port}`)});
+server.on('connection', (sock)=>{
+ //console.log(no,'server.on(connection)',sock)
+ onconnect(sock)
+});
+
+
+setTimeout(()=>{
+  
 if(opt.bootnodes){
+
 for(let n of opt.bootnodes){
  const n_addr=n.addr;
  if(addr==n_addr || nodes[n_addr]) { continue }
@@ -143,7 +159,8 @@ for(let n of opt.bootnodes){
    await writeTo(sock,ms)
  })
  
-}
+} // for
+
 } else if(opt.gw_host && opt.gw_port){
     
  const sock = new net.Socket();;sock.outgoing=true;
@@ -157,6 +174,7 @@ for(let n of opt.bootnodes){
  })
   
 }
+},500) // setTimeout
 
 this.connect = (ns)=>{
   
@@ -185,13 +203,6 @@ for(let n of ns){
 }
 
 
-
-server =  net.createServer();
-server.listen(opt.port, opt.host, () => { console.log(`net server listen ${opt.host}:${opt.port}`)});
-server.on('connection', (sock)=>{
- //console.log(no,'server.on(connection)',sock)
- onconnect(sock)
-});
 
 
 const mpack=async (s,mo)=>{

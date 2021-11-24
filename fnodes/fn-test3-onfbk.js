@@ -4,27 +4,28 @@ import {rndstr,hash256,pause} from '../forceutil.js'
 
 (async ()=>{
   
-// fn-test [port]
-  
-//const name = process.argv[1].split('/'); console.log(name[name.length-1].split('.')[0])
 
-let P = 10000; if(process.argv.length>=3) P = parseInt(process.argv[2])
+const st={}
 
-// node
-
-const fn = await ForceNode({
-  ontx: async (tx,st)=>{
-  console.log('ontx:',tx,st)
-  switch(tx.data.func){
-    case 'set':{
-      const args=tx.data.args;
-      const k=args[0],v=args[1];
-      st[k]=v;
-      return true;
+const onfbk = async (fbk,no,addr)=>{
+  console.log('onfbk',fbk)
+  const txq=fbk.data.txq;
+  for(let i in txq){
+    const tx=txq[i]
+    switch(tx.data.func){
+      case 'set':{
+        const args=tx.data.args;
+        const k=args[0],v=args[1];
+        st[k]=v;
+      }
     }
+    console.log(no,i,tx)
   }
-  return false;
-  }})
+  return true;
+}
+
+
+const fn = await ForceNode({onfbk})
 
 console.log(fn.acc)
 
@@ -45,12 +46,18 @@ const txsender=async ()=>{
   const sender=addrs[Math.floor(Math.random() * addrs.length)]
   const tx={data:{func:'set',args:[k,v],sender,nonce:0,timestamp:Date.now()}}
   tx.h=await hash256(JSON.stringify(tx.data))
-  //await signtx(tx,sender)
   fn.ftxmgr.push(tx)
   txcnt++
   setTimeout(txsender,Math.floor(Math.random() * 200))
 }
 setTimeout(txsender,500);
+
+var stchkcnt=0;
+const stchecker=async ()=>{
+  console.log('stchecker',Object.keys(st).length)
+  setTimeout(stchecker,Math.floor(2000+Math.random() * 1200))
+}
+setTimeout(stchecker,3500);
 
 
 

@@ -1,0 +1,9 @@
+n7: node fexamples/fn-example1.js --key keys/k7.json --host 127.0.0.1 --port 10007 --http_host 127.0.0.1 --http_port 8007 --bootnodes  bootnodes.json --pwd keys/pwd
+n8: node fexamples/fn-example1.js --key keys/k8.json --host 127.0.0.1 --port 10008 --http_host 127.0.0.1 --http_port 8008 --bootnodes  bootnodes.json --pwd keys/pwd
+n9: node fexamples/fn-example1.js --key keys/k9.json --host 127.0.0.1 --port 10009 --http_host 127.0.0.1 --http_port 8009 --bootnodes  bootnodes.json --pwd keys/pwd
+n10: node fexamples/fn-example1.js --key keys/k10.json --host 127.0.0.1 --port 10010 --http_host 127.0.0.1 --http_port 8010 --bootnodes  bootnodes.json --pwd keys/pwd
+n11: node fexamples/fn-example1.js --key keys/k11.json --host 127.0.0.1 --port 10011 --http_host 127.0.0.1 --http_port 8011 --bootnodes  bootnodes.json --pwd keys/pwd
+n12: node fexamples/fn-example1.js --key keys/k12.json --host 127.0.0.1 --port 10012 --http_host 127.0.0.1 --http_port 8012 --bootnodes  bootnodes.json --pwd keys/pwd
+n13: node fexamples/fn-example1.js --key keys/k13.json --host 127.0.0.1 --port 10013 --http_host 127.0.0.1 --http_port 8013 --bootnodes  bootnodes.json --pwd keys/pwd
+n14: node fexamples/fn-example1.js --key keys/k14.json --host 127.0.0.1 --port 10014 --http_host 127.0.0.1 --http_port 8014 --bootnodes  bootnodes.json --pwd keys/pwd
+n15: node fexamples/fn-example1.js --key keys/k15.json --host 127.0.0.1 --port 10015 --http_host 127.0.0.1 --http_port 8015 --bootnodes  bootnodes.json --pwd keys/pwd

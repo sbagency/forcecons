@@ -1,5 +1,5 @@
 import {ForceNetRpc} from './forcenet-rpc.js'
-import {rndstr,hash256} from './forceutil.js'
+import {rndstr,hash256,pause} from './forceutil.js'
 
 function cons(opt){
   
@@ -9,13 +9,12 @@ const no=opt.no;
 const addr=opt.addr;
 const fnet = opt.fnet;
 
+const finLen = opt.finLen || 8;
+const fbkaLen = opt.fbkaLen || 16;
+
 var stoped=opt.stoped;
 
 var oblock=0;
-
-const pause=(ms)=>{ return new Promise((resolve) => { setTimeout( () => { resolve(); }, ms); }); }
-const now=()=>Date.now(); //(new Date()).toISOString()
-
 
 this.onmsg = async (mo)=>{
 
@@ -29,29 +28,22 @@ this.onmsg = async (mo)=>{
     case 'bk':{
       const bk=data.bk;
       if(bks[bk.h]){console.log(no,'bk exists',bk,'from:',from.no, from.addr.substr(0,8)); return;}
-      if(!bks[bk.data.ph]){ // orphan bk
+      if(bk.data.no<=fbk.data.no){console.log(no,'bk.data.no<=fbk.data.no drop bk',bk); return;}
       
+      //if(!bks[bk.data.ph]){ await pause(200); if(bks[bk.data.ph]){console.log(no,'no orphan after pause',bk.data.no,bk.h.substr(0,8))}}
+      
+      if(!bks[bk.data.ph]){ // orphan bk
+
        if(oblock>0){console.log(no,'orphan bk already in process, ignore other orphans');return;}
        oblock++;
        
-       let from_addr=from.addr; let from_no=from.no; let obk=bk;
+       let from_addr=from.addr; let from_no=from.no;
+       let obk=bk;
 
-/*
-       await pause(200);
-       
-       if(bks[bk.data.ph]){ // bk is not orphan after pause
-        if(!takebk(bk)){ console.log(no,'onmsg bk, error !takebk(bk)'); oblock--; return;}
-        oblock--;
-        console.log(no,'orphan bk is not orphan after a pause',obk.data.no,obk.h.substr(0,8),'from:',from_no)
-        return;
-       }
-*/
        const get_bks=async (h)=>{
         let q={what:'get_bk',h:h}
         try{
-          //let resp=await opt.rpc(JSON.stringify(q),from_addr);
           let resp=await fnrpc.run(q,from_addr);
-          //console.log(no,'resp',resp)
           if(resp.err){console.log(no,'err',resp);return null;}
           return resp.res;
         }catch(e){ console.log(no,'get_bk rpc error',e);}
@@ -63,11 +55,13 @@ this.onmsg = async (mo)=>{
        while(!bks[gbk.data.ph]){
         wdc--;if(wdc==0){oblock--;console.log(no,'error getting orphan chain too long, wdc==0');return;}
         gbk=await get_bks(gbk.data.ph);
-        if(!gbk || !gbk.data || !gbk.data.ph){oblock--;console.log(no,'error getting orphan chain !gbk');return;}
+        //if(!gbk || !gbk.data || !gbk.data.ph){oblock--;console.log(no,'error getting orphan chain !gbk');return;}
+        if(!gbk || !gbk.data || !gbk.data.ph){console.log(no,'orphan !gbk, obks.length',obks.length);break;}
+        if(gbk.data.no<=fbk.data.no){console.log(no,'orphan gbk.data.no<=fbk.data.no',gbk,'obks.length',obks.length); break;}
         obks.push(gbk);
        }
        
-       console.log(no,'orphan bk, collected',obks.length)
+       //console.log(no,'orphan bk, collected',obks.length, 'lbk:',lbk.data.no,lbk.h.substr(0,8))
        
        for(let i=obks.length-1;i>=0;i--){
          let xbk=obks[i]
@@ -75,16 +69,17 @@ this.onmsg = async (mo)=>{
         if(!takebk(xbk)){ console.log(no,'orphan bk, !takebk(xbk) finish'); oblock--; return;}
        }
          
-       console.log(no,'orphan bk, finished',bk.data.no,bk.h.substr(0,8),'from:',from.no);
+       console.log(no,'orphan bk, finished',obks.length, 'lbk:',lbk.data.no,lbk.h.substr(0,8), 'bk:',bk.data.no,bk.h.substr(0,8),'from:',from.no);
 
        oblock--;
+       
+       checkChain(bk)
        return;
       } // orphan
       
      if(!takebk(bk)){ console.log('onmsg bk, error !takebk(bk)'); return;}
         
       
-      //console.log(no,'bk',bk,'from:',from.no, from.addr.substr(0,8))
       checkChain(bk)
       return;
     } // bk
@@ -122,15 +117,33 @@ const fnrpc = new ForceNetRpc({addr,no,sendTo:fnet.sendTo,onrpc})
 
 const bks={};
 const lvbks={};
-var lbk;
+var lbk,fbk;
+var stats={};
+
+const fbka=[];
+
+
+const upd_fbk=()=>{
+  let fbk0=lbk;
+  let i=finLen;while(i>0){
+    let bk=bks[fbk0.data.ph]
+    if(!bk)break;
+    fbk0=bk;
+    i--;
+  }
+  fbk=fbk0;
+}
+
 
 (async ()=>{
   const bk0={data:{no:0,ph:null,timestamp:1633776181717,rndstr:'b23648269e4f74ea49d355bd040881d0d1eec1177b31efafb252acc7a323ab00'}}
   bk0.h=await hash256(JSON.stringify(bk0.data))
   bk0.sender={no:null,addr:null}
+  bk0.finalized=true; fbka.push(bk0);
   console.log('bk0',bk0)
   bks[bk0.h]=bk0;
   lbk=bk0;
+  fbk=bk0;
 })()
 
 const takebk=(bk,self)=>{
@@ -139,10 +152,15 @@ const takebk=(bk,self)=>{
    if(!opt.onbk(bk,self))return false;
  }
  bks[bk.h]=bk;
+ bkwatch[bk.h]=bk;
+ 
+ const saddr=bk.sender.addr; if(!stats[saddr])stats[saddr]={bk:0,fbk:0}; stats[saddr].bk++;
+ 
  return true
 }
 
 const verifyChain=(bk)=>{
+  return true;
   let bk0=bk
   if(lvbks[bk.h])return true
   for(let i=bk.data.no;i>0;i--){
@@ -156,21 +174,7 @@ const verifyChain=(bk)=>{
   return true
 }
 
-const updInchain=(bk0,lbk0)=>{
-  delete lbk.inch
-  while(bk.data.no>lbk.data.no){
-    bk.inch=true;
-    bk=bks[bk.data.ph]; if(!bk){console.log('updInchain: !bk'); return}
-  }
 
-  while(bk.data.ph!=lbk.data.ph){
-    bk.inch=true;delete lkb.inch
-    bk=bks[bk.data.ph]; if(!bk){console.log('updInchain: !bk'); return}
-    lbk=bks[lbk.data.ph]; if(!lbk){console.log('updInchain: !lbk'); return}
-  }
-  
-  
-}
 
 const checkChain=(bk,self)=>{
   if(bk.data.no>lbk.data.no){
@@ -179,16 +183,94 @@ const checkChain=(bk,self)=>{
       throw new Error('checkChain !verifyChain bk.data.no '+bk.data.no)
     }
     if(opt.onlbk)opt.onlbk(bk,self)
-    //if(bk.data.ph!=lbk.h)updInchain(bk)
     lbk=bk;
-    console.log(no,'lbk:',lbk.data.no,lbk.h.substr(0,8),'->',lbk.data.ph.substr(0,8),'sender:',bk.sender.no,'txql',bk.data.txq.length)
+    const fbk0=fbk;
+    upd_fbk();
+    if(fbk0!=fbk){
+      fbk.finalized=true; fbka.push(fbk);
+      const saddr=fbk.sender.addr; if(!stats[saddr])stats[saddr]={bk:0,fbk:0}; stats[saddr].fbk++;
+      if(opt.onfbk)opt.onfbk(fbk,self);
+      //upd_bkwatch();
+    }
+    let fbk_data_ph = fbk.data.ph || 'null';
+    console.log(no,addr.substr(0,8),'lbk:',lbk.data.no,lbk.h.substr(0,8),'->',lbk.data.ph.substr(0,8),
+                   'fbk:',fbk.data.no,fbk.h.substr(0,8),'->',fbk_data_ph.substr(0,8),
+                   'sender:',bk.sender.no,'txql',bk.data.txq.length)
   }
 }
 
 
+const fbka_watch=()=>{
+  const rbks=[]; let maxno=0;
+  while(fbka.length>fbkaLen){
+    const bk=fbka.shift()
+    //console.log(no,'fbka_watch fbka.shift',bk.data.no,bk.h.substr(0,8))
+    delete bks[bk.h]; delete lvbks[bk.h];
+    rbks.push(bk.h); if(bk.data.no>maxno)maxno=bk.data.no;
+  }
+  //if(rbks.length>0){
+    //console.log(no,'fbka_watch rbks.length>0',rbks,maxno)
+    //if(opt.onrbk)opt.onrbk(rbks,maxno)
+  //}
+}
+
+setInterval(fbka_watch,2100)
+
+const stats_watch=()=>{
+  console.log(no,'stats:',stats)
+}
+
+setInterval(stats_watch,2500)
+
+
+const upd_bkwatch=()=>{
+  const rbks=[]
+  for(let h of Object.keys(bkwatch)){
+    const bk=bkwatch[h]
+    if(bk.finalized) { delete bkwatch[h]; continue;}
+    if(bk.data.no<=fbk.data.no && fbk.h!=bk.h){
+      const txq=bk.data.txq;
+      //if(opt.revTxq && txq.length>0)opt.revTxq(txq);
+      //console.log(no,'upd_bkwatch >>>> ',bk.data.no,bk.h.substr(0,8))
+      if(bk.sender.addr == addr){
+        if(opt.revTxq)opt.revTxq(txq);
+      }
+      rbks.push(bk.h);
+      delete bkwatch[h];
+    }
+  }
+  //if(rbks.length>0){
+    //if(opt.onrbk)opt.onrbk(rbks)
+  //}
+}
+
+setInterval(upd_bkwatch,2000)
+
+/*
+var bk_watch_head;
+var bk_watch_tail;
+
+const upd_bkwatch=()=>{
+  while(bk_watch_head){
+    if(bk_watch_head.finalized){ bk_watch_head = bk_watch_head.bk_watch_next; continue;}
+    if(bk_watch_head.data.no<=fbk.data.no){
+      const txq=bk_watch_head.data.txq;
+      if(opt.revTxq && txq.length>0)opt.revTxq(txq);
+      bk_watch_head = bk_watch_head.bk_watch_next;
+      continue;
+    }
+    else {break;}
+  }
+}
+*/
+
+
+const bkwatch={}
 
 var bk_prod_cnt = 0;
 async function bk_prod() {
+  
+  if(oblock==0){
   
   const lbk0=lbk;
   
@@ -197,22 +279,24 @@ async function bk_prod() {
   bk.data.txq=txq;
   bk.h=await hash256(JSON.stringify(bk.data))
   bk.sender={no:no,addr:addr}
-
-  bk.sth = await hash256(JSON.stringify(bk.st))
+  bk.proof={nonce:rndstr(8)}
 
   if(lbk0!=lbk && !stoped){console.log(no,'>>reprod>>',lbk0.data.no,lbk.data.no);setTimeout(bk_prod, 10);return;}
 
   if(!takebk(bk,true)){ console.log('bk_prod, error !takebk(bk,true)',bk);return; }
    
-  checkChain(bk,true,lbk0);
+  checkChain(bk,true);
   
-  const bk_st=bk.st;  delete bk.st;
+  //bkwatch[bk.h]
+  //if(!bk_watch_head)bk_watch_head=bk;
+  //if(!bk_watch_tail){bk_watch_tail=bk;}else {bk_watch_tail.bk_watch_next=bk;bk.bk_watch_prev=bk_watch_tail;bk_watch_tail=bk;}
+  //bkwatch[bk.h]=bk
 
-  await fnet.send({what:"bk",bk:bk,nonce:bk_prod_cnt})
+  await fnet.send({what:"bk",bk:bk,nonce:bk_prod_cnt++})
   
-  bk.st=bk_st
+  }
 
-  if(!stoped)setTimeout(bk_prod, 1000+Math.floor(Math.random() * 2000));
+  if(!stoped)setTimeout(bk_prod, 2000+Math.floor(Math.random() * 2000));
 }
 
 
@@ -233,7 +317,7 @@ this.run=()=>{
   if(!stoped)return;
   stoped=false
   //setTimeout(ping_tick, 100);
-  setTimeout(bk_prod,100);
+  setTimeout(bk_prod,1000);
   //setTimeout(testrpc_tick, 100);
   if(opt.onrun)opt.onrun();
 }
