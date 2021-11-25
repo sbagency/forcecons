@@ -1,5 +1,5 @@
 # forcecons
-distributed protocols r&amp;d framework
+distributed protocols r&amp;d framework (PoC)
 
 ### components
 ```js
