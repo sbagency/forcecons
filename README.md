@@ -1,6 +1,21 @@
 # forcecons
 distributed protocols r&amp;d framework
 
+### components
+```js
+/*
+forceutil - keys management, utilities
+forceverifier - sign/verify messages
+forcenet - networking (secure sessions, send/recieve messages)
+forcenet-rpc - rpc functions
+forceconssimpl - simple stateless consensus, longest chain rule, confirmations are next blocks, finality after n blocks
+forcetxmgr - transaction manager (pool)
+forcenodesimpl - (forcenet,forceconssimpl,forcetxmgr,...) composed together
+
+./static - visualisation web app (websocket)
+*/
+```
+
 
 visualisation for consensus protocols r&d
 ![forcecons blockchain graph](forcecons-blockchain-graph.png)
