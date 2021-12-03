@@ -135,6 +135,16 @@ server.on('connection', (sock)=>{
 });
 
 
+const createX25519DH=()=>{
+  keyPair = crypto.generateKeyPairSync('x25519'); pubKey = keyPair.publicKey.export({type: 'spki', format: 'der'}).toString('base64');
+  return {privateKey:keyPair.privateKey,pubKey}
+}
+
+const computeSecretX25519=(pubKey, privateKey)=>{
+return crypto.diffieHellman({ publicKey : crypto.createPublicKey({key:Buffer.from(pubKey,'base64'),type:'spki',format:'der'}),privateKey});
+}
+
+
 setTimeout(()=>{
   
 if(opt.bootnodes){
@@ -162,7 +172,9 @@ for(let n of opt.bootnodes){
 } // for
 
 } else if(opt.gw_host && opt.gw_port){
-    
+ 
+ if(opt.gw_host==opt.host || opt.gw_port==opt.port) return;
+
  const sock = new net.Socket();;sock.outgoing=true;
  sock.on('error', (e)=>{ console.log(no,e) })
  sock.connect(opt.gw_port, opt.gw_host, async ()=> {
@@ -173,7 +185,7 @@ for(let n of opt.bootnodes){
    await writeTo(sock,ms)
  })
   
-}
+} // else if
 },500) // setTimeout
 
 this.connect = (ns)=>{

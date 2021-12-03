@@ -45,8 +45,11 @@ const colors=['red','blue','pink','orange','yellow','green','gold','khaki','mage
     const Graph1 = ForceGraph()(elem1)
       .graphData(data1)
       .backgroundColor('lightgreen')
+      .nodeCanvasObject((node, ctx) => nodePaint(node, node.color, ctx))
+      //.nodePointerAreaPaint(nodePaint)
       .nodeLabel('id')
       .linkDirectionalArrowLength(5);
+      
       //.linkDirectionalParticleWidth(3.4)
       //.linkDirectionalParticleColor( (l) => { return l.source.color; });
 
@@ -58,25 +61,65 @@ const colors=['red','blue','pink','orange','yellow','green','gold','khaki','mage
         console.log('onLinkClick',link)
       })
       
+function nodePaint(node, color, ctx) {
+      const { id, x, y } = node;
+      //console.log(ctx)
+      ctx.fillStyle = color;
+      if(node.fnzd){
+        ctx.fillRect(x - 5, y - 5, 10, 10);
+      } else {
+        ctx.beginPath(); ctx.arc(x, y, 5, 0, 2 * Math.PI, false);
+        ctx.fill();
+      }
+      ctx.fillStyle = 'black';
+      ctx.fillText(node.no, x, y);
+      
+}
+      
 window.Graph1=Graph1
 
 document.getElementById("g1zoom2fitctrl").onclick=function(e){Graph1.zoomToFit();}
 
-document.getElementById("g1resetctrl").onclick=function(e){
+const resetgraph = ()=>{
   Graph1.graphData({nodes: [],links: []});
-  g1nodes={},g1onds={};
+  g1nodes={},g1onds={};bks={};
 }
+
+document.getElementById("g1resetctrl").onclick=function(e){ resetgraph(); }
 
 var lbkno=0;
 
 const onlbk=(lbk)=>{
+  const addr = lbk.sender.addr
+  const no = lbk.sender.no
+  console.log(no,'onlbk',lbk.data.no)
+  
   lbkinfoEl.innerText = lbk.data.no + ':'+ lbk.h.substr(0,8)
   lbkno=lbk.data.no;
 }
 
-let g1nodes={},g1onds={};
+var fbkno=0;
 
-const onbk=(bk)=>{
+const onfbk=(fbk)=>{
+  const addr = fbk.sender.addr
+  const no = fbk.sender.no
+  console.log(no,'onfbk',fbk.data.no)
+  const node=bks[fbk.h]
+  if(node){
+    node.fnzd=true;
+  }
+  //lbkinfoEl.innerText = fbk.data.no + ':'+ fbk.h.substr(0,8)
+  fbkno=fbk.data.no;
+}
+
+
+let bks={},g1nodes={},g1onds={};
+
+var mysid;
+
+const onbk=(bk,sid)=>{
+  
+  if(mysid!=sid){  mysid=sid; resetgraph();  }
   
   const addr = bk.sender.addr
   const no = bk.sender.no
@@ -96,7 +139,7 @@ const onbk=(bk)=>{
     let name='bk#'+bk.data.no+'['+bk.h.substr(0,8)+'->'+bk.data.ph.substr(0,8)+'].'+bk.sender.no;
     let node={ "id" : name, color:colors[bk.sender.no%colors.length],no:bk.data.no, h:bk.h}
     nodes.push(node)
-
+    bks[bk.h]=node;
     g1nodes[bk.h]=node
     if(bk.data.no>0){
       
@@ -220,14 +263,14 @@ ws.onmessage = function(event) {
   //console.log(data)
   switch(data.what){
     case 'bk':{
-      onbk(data.bk);return;
+      onbk(data.bk,data.sid);return;
     }
     case 'lbk':{
-      onlbk(data.lbk);return;
+      onlbk(data.lbk,data.sid);return;
     }
-    //case 'rbk':{
-    //  onrbk(data);return;
-    //}
+    case 'fbk':{
+      onfbk(data.fbk,data.sid);return;
+    }
   }
 };
 

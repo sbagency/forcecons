@@ -8,9 +8,10 @@ console.log('cons',opt)
 const no=opt.no;
 const addr=opt.addr;
 const fnet = opt.fnet;
+const fdb = opt.fdb;
 
 const finLen = opt.finLen || 8;
-const fbkaLen = opt.fbkaLen || 16;
+const xinLen = opt.xinLen || 8;
 
 var stoped=opt.stoped;
 
@@ -129,7 +130,7 @@ this.onmsg = async (mo)=>{
       }
 
 
-      console.log(no,'bk_ok',bk_ok.no,bk_ok.h.substr(0,8),'sender:',bk.sender.no,'from:',from.no,'cnt',bk.oks.cnt)
+      //console.log(no,'bk_ok',bk_ok.no,bk_ok.h.substr(0,8),'sender:',bk.sender.no,'from:',from.no,'cnt',bk.oks.cnt)
 
       break;
     }
@@ -171,9 +172,9 @@ const lvbks={};
 var lbk,fbk;
 var stats={};
 
-const fbka=[];
+//const fbka=[];
 
-
+/*
 const upd_fbk=()=>{
   let fbk0=lbk;
   let i=finLen;while(i>0){
@@ -184,13 +185,13 @@ const upd_fbk=()=>{
   }
   fbk=fbk0;
 }
-
+*/
 
 (async ()=>{
   const bk0={data:{no:0,ph:null,timestamp:1633776181717,rndstr:'b23648269e4f74ea49d355bd040881d0d1eec1177b31efafb252acc7a323ab00'}}
   bk0.h=await hash256(JSON.stringify(bk0.data))
   bk0.sender={no:null,addr:null}
-  bk0.finalized=true; fbka.push(bk0);
+  bk0.finalized=true; //fbka.push(bk0);
   console.log('bk0',bk0)
   bks[bk0.h]=bk0;
   lbk=bk0;
@@ -203,7 +204,8 @@ const takebk=(bk,self)=>{
    if(!opt.onbk(bk,self))return false;
  }
  bks[bk.h]=bk;
- bkwatch[bk.h]=bk;
+ //bkwatch[bk.h]=bk;
+ const pbk=bks[bk.data.ph];  if(pbk){if(!pbk.nbks)pbk.nbks=[]; pbk.nbks.push(bk);}
  
  const saddr=bk.sender.addr; if(!stats[saddr])stats[saddr]={bk:0,fbk:0}; stats[saddr].bk++;
  
@@ -226,6 +228,30 @@ const verifyChain=(bk)=>{
 }
 
 
+const lastBoKey = 'last_bo_key-7332-9098-42ff-ab56'
+
+const fdb_put_bo=async (bo,h,pref)=>{ // fdb_put_bo(bk,bk.h,'bk'); fdb_put_bo(tx,tx.h,'tx')
+  fdb.put(h,JSON.stringify(bo))
+  if(pref)fdb.put(pref+lastBoKey,h)
+}
+
+const fdb_get_last_bo=async (pref)=>{ // fdb_get_last_bo('bk')
+  const h = await fdb.get(pref + lastBoKey)
+  if(!h) return null;
+  const bin = await fdb.get(h)
+  if(!bin) return null;
+  let bo;try{ bo=JSON.parse(bin); }catch(e){console.log(e); return null;}
+  return bo;
+}
+
+const fdb_get_bo=async (h)=>{
+  const bin = await fdb.get(h);
+  if(!bin) return null;
+  let bo;try{ bo=JSON.parse(bin); }catch(e){console.log(e); return null;}
+  return bo;
+}
+
+
 
 const checkChain=(bk,self)=>{
   if(bk.data.no>lbk.data.no){
@@ -235,22 +261,48 @@ const checkChain=(bk,self)=>{
     }
     if(opt.onlbk)opt.onlbk(bk,self)
     lbk=bk;
-    const fbk0=fbk;
-    upd_fbk();
-    if(fbk0!=fbk){
-      fbk.finalized=true; fbka.push(fbk);
-      const saddr=fbk.sender.addr; if(!stats[saddr])stats[saddr]={bk:0,fbk:0}; stats[saddr].fbk++;
-      if(opt.onfbk)opt.onfbk(fbk,self);
-      //upd_bkwatch();
+    //const fbk0=fbk;
+    //upd_fbk();
+    //{
+    //  let fbk0=lbk;
+    //  let i=finLen;while(i>0){
+    //    let bk=bks[fbk0.data.ph]
+    //    if(!bk)break;
+    //    fbk0=bk;
+    //    i--;
+    //  }
+    //  fbk=fbk0;
+    //}
+    
+    if(lbk.data.no-fbk.data.no>finLen){
+      const fbk_no_1 = fbk.data.no+1;
+      let bki=lbk;while(bki.data.no>fbk_no_1){
+        bki=bks[bki.data.ph]
+      }
+      console.log(no,'bki:', bki.data.no, bki.h.substr(0,8), 'fbk:', fbk.data.no, fbk.h.substr(0,8) );
+      
+      //let bki=lbk;let i=finLen;while(i>0){
+      //  let _bk=bks[bki.data.ph]; if(!_bk)break; bki=_bk;
+      //}
+      //if(fbk!=bki){
+       if(fbk!=bks[bki.data.ph]){
+         console.log(no,'fbk!=bks[bki.data.ph]',fbk,bks[bki.data.ph])
+         throw  new Error('fbk!=bks[bki.data.ph' + fbk.data.no +':'+fbk.h.substr(0,8))
+       }
+       fbk=bki;
+       fbk.finalized=true; fdb_put_bo(fbk.h,fbk,'bk'); //fbka.push(fbk);
+       const saddr=fbk.sender.addr; if(!stats[saddr])stats[saddr]={bk:0,fbk:0}; stats[saddr].fbk++;
+       if(opt.onfbk)opt.onfbk(fbk,self);
+      //}
     }
     let fbk_data_ph = fbk.data.ph || 'null';
-    console.log(no,addr.substr(0,8),'lbk:',lbk.data.no,lbk.h.substr(0,8),'->',lbk.data.ph.substr(0,8),
+    console.log(no,'lbk:',lbk.data.no,lbk.h.substr(0,8),'->',lbk.data.ph.substr(0,8),
                    'fbk:',fbk.data.no,fbk.h.substr(0,8),'->',fbk_data_ph.substr(0,8),
                    'sender:',bk.sender.no,'txql',bk.data.txq.length)
   }
 }
 
-
+/*
 const fbka_watch=()=>{
   const rbks=[]; let maxno=0;
   while(fbka.length>fbkaLen){
@@ -266,14 +318,14 @@ const fbka_watch=()=>{
 }
 
 setInterval(fbka_watch,2100)
-
+*/
 const stats_watch=()=>{
   console.log(no,'stats:',stats)
 }
 
-setInterval(stats_watch,2500)
+//setInterval(stats_watch,2500)
 
-
+/*
 const upd_bkwatch=()=>{
   const rbks=[]
   for(let h of Object.keys(bkwatch)){
@@ -294,8 +346,9 @@ const upd_bkwatch=()=>{
     //if(opt.onrbk)opt.onrbk(rbks)
   //}
 }
+*/
 
-setInterval(upd_bkwatch,2000)
+//setInterval(upd_bkwatch,2000)
 
 /*
 var bk_watch_head;
@@ -316,7 +369,7 @@ const upd_bkwatch=()=>{
 */
 
 
-const bkwatch={}
+//const bkwatch={}
 
 var bk_prod_cnt = 0;
 async function bk_prod() {

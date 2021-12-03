@@ -1,11 +1,10 @@
-import {ForceNode} from '../forcenode.js'
+import {ForceNode} from '../forcenodesimpl.js'
 import {rndstr,hash256,pause} from '../forceutil.js'
 
 
 import commandLineArgs from 'command-line-args'
 const opts = commandLineArgs([
   { name: 'help', alias: 'h', type: Boolean },
-  { name: 'db', type: String},
   { name: 'host', type: String, defaultValue: "127.0.0.1"},
   { name: 'port', type: Number, defaultValue: 10000},
   { name: 'http_host', type: String, defaultValue: "127.0.0.1"},
@@ -19,7 +18,7 @@ const opts = commandLineArgs([
 console.log("options:",opts)
 
 if("help" in opts || !opts.key){
-console.log("Usage: --db dbs/db0 --key keys/k0.json --host 127.0.0.1 --port 10000 --http_host 127.0.0.1 --http_port 8000 --bootnodes  bootnodes.json --pwd keys/pwd")
+console.log("Usage: --key keys/k0.json --host 127.0.0.1 --port 10000 --http_host 127.0.0.1 --http_port 8000 --bootnodes  bootnodes.json --pwd keys/pwd")
   process.exit(0)
 }
 
@@ -30,7 +29,7 @@ const no=opts.port%100;
 console.log(no,'starting...');
   
 
-const st={}; //setInterval(()=>{console.log(no,'st.length:',Object.keys(st).length)},3000)
+const st={}; setInterval(()=>{console.log(no,'st.length:',Object.keys(st).length)},3000)
 
 opts.onfbk = async (fbk,no,addr)=>{
   //console.log('onfbk',fbk)

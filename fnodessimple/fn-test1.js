@@ -1,9 +1,9 @@
-import {ForceNode} from '../forcenode.js'
+import {ForceNode} from '../forcenodesimpl.js'
 
 
 (async ()=>{
 
-console.log('fndb-test1..')
+console.log('fn-test1..')
 
 const fn = await ForceNode()
 
