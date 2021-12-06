@@ -228,14 +228,25 @@ const verifyChain=(bk)=>{
 }
 
 
-const lastBoKey = 'last_bo_key-7332-9098-42ff-ab56'
+const lastBoKey = '_last_key-7332-9098-42ff-ab56'
 
-const fdb_put_bo=async (bo,h,pref)=>{ // fdb_put_bo(bk,bk.h,'bk'); fdb_put_bo(tx,tx.h,'tx')
-  fdb.put(h,JSON.stringify(bo))
-  if(pref)fdb.put(pref+lastBoKey,h)
+//var dbLock = 0;
+
+//setInterval(async ()=>{dbLock++; await fdb.flush(); dbLock--;},3000)
+
+const fdb_put_bo=async (h,bo,pref)=>{ // fdb_put_bo(bk.h,bk,'bk'); fdb_put_bo(tx.h,tx,'tx')
+//  while(dbLock)await pause(10);
+
+//  fdb.put(pref + h,JSON.stringify(bo))
+//  if(pref)fdb.put(pref+lastBoKey,h)
+  fdb.batch([
+    {type:'put',key:pref+h,value:JSON.stringify(bo)},
+    {type:'put',key:pref+lastBoKey,value:h}
+  ])
 }
 
 const fdb_get_last_bo=async (pref)=>{ // fdb_get_last_bo('bk')
+//  while(dbLock)await pause(10);
   const h = await fdb.get(pref + lastBoKey)
   if(!h) return null;
   const bin = await fdb.get(h)
@@ -245,6 +256,7 @@ const fdb_get_last_bo=async (pref)=>{ // fdb_get_last_bo('bk')
 }
 
 const fdb_get_bo=async (h)=>{
+//  while(dbLock)await pause(10);
   const bin = await fdb.get(h);
   if(!bin) return null;
   let bo;try{ bo=JSON.parse(bin); }catch(e){console.log(e); return null;}

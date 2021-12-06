@@ -131,9 +131,14 @@ const revTxq=(q)=>{
 }
 
 const fdb = new ForceLevelDB({dir:opt.db}) //, opts:{ keyEncoding: 'hex', valueEncoding: 'utf-8' }});
+setInterval(async ()=>{  await fdb.flush();  console.log(no,'db-flushed') },10000)
+
+
 const fnet = new ForceNet({addr,no,host,port,gw_host,gw_port,bootnodes,onmsg, sign, verify})
 const ftxmgr = new ForceTxMgr({no});
 const fcons = new ForceConsSimpl({no,addr,fdb,fnet,getTxq,revTxq,onbk,onlbk,onfbk,stoped:true})
+
+
 
 
 var wss={};
